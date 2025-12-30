@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SURVEILLANCE TERMINAL // CAM-DETECT</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        cyber: {
+                            black: '#0a0a0a',
+                            dark: '#111111',
+                            panel: '#1a1a1a',
+                            primary: '#00ff41', // Matrix/Hacker Green
+                            primaryDim: 'rgba(0, 255, 65, 0.2)',
+                            alert: '#ff003c', // Cyberpunk Red
+                            alertDim: 'rgba(255, 0, 60, 0.2)',
+                            text: '#e0e0e0',
+                            grid: '#222222'
+                        }
+                    },
+                    fontFamily: {
+                        mono: ['"Share Tech Mono"', 'monospace'],
+                        display: ['"Orbitron"', 'sans-serif'],
+                    },
+                    animation: {
+                        'spin-slow': 'spin 4s linear infinite',
+                        'spin-fast': 'spin 1s linear infinite',
+                        'pulse-fast': 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'ping-slow': 'ping 2s cubic-bezier(0, 0, 0.2, 1) infinite',
+                        'scan': 'scan 3s linear infinite',
+                        'flash': 'flash 0.5s ease-in-out infinite'
+                    },
+                    keyframes: {
+                        scan: {
+                            '0%': { backgroundPosition: '0% 0%' },
+                            '100%': { backgroundPosition: '0% 100%' }
+                        },
+                        flash: {
+                            '0%, 100%': { opacity: '1' },
+                            '50%': { opacity: '0.3' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .text-glow {
+                text-shadow: 0 0 10px var(--tw-shadow-color);
+            }
+            .border-glow {
+                box-shadow: 0 0 10px var(--tw-shadow-color);
+            }
+        }
+
+        body {
+            background-color: #050505;
+            color: #00ff41;
+            overflow-x: hidden;
+            background-image: 
+                linear-gradient(rgba(0, 255, 65, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 65, 0.03) 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+
+        /* Radar Styling */
+        .radar-container {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            border: 2px solid #1a1a1a;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.1);
+            overflow: hidden;
+            background: radial-gradient(circle, rgba(0,20,0,1) 0%, rgba(0,0,0,1) 100%);
+        }
+
+        .radar-grid {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: 
+                repeating-radial-gradient(transparent 0, transparent 49px, rgba(0, 255, 65, 0.2) 50px),
+                linear-gradient(90deg, transparent 49.5%, rgba(0, 255, 65, 0.2) 50%, transparent 50.5%),
+                linear-gradient(0deg, transparent 49.5%, rgba(0, 255, 65, 0.2) 50%, transparent 50.5%);
+        }
+
+        .radar-scanner {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: conic-gradient(from 180deg, transparent 50%, rgba(0, 255, 65, 0.5) 100%);
+            border-bottom: 2px solid #00ff41;
+            animation: spin 3s linear infinite;
+        }
+
+        .radar-blip {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: #ff003c;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #ff003c;
+            animation: pulse 1s infinite;
+            display: none; /* Hidden by default */
+        }
+
+        /* Alert Mode Overrides */
+        .alert-mode .radar-container {
+            border-color: #ff003c;
+            box-shadow: 0 0 30px rgba(255, 0, 60, 0.3);
+        }
+        .alert-mode .radar-grid {
+            background: 
+                repeating-radial-gradient(transparent 0, transparent 49px, rgba(255, 0, 60, 0.2) 50px),
+                linear-gradient(90deg, transparent 49.5%, rgba(255, 0, 60, 0.2) 50%, transparent 50.5%),
+                linear-gradient(0deg, transparent 49.5%, rgba(255, 0, 60, 0.2) 50%, transparent 50.5%);
+        }
+        .alert-mode .radar-scanner {
+            background: conic-gradient(from 180deg, transparent 50%, rgba(255, 0, 60, 0.5) 100%);
+            border-bottom: 2px solid #ff003c;
+            animation: spin 0.5s linear infinite; /* Faster spin on alert */
+        }
+        
+        /* CRT Effect Overlay */
+        .crt::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 50;
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0a0a0a; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1a1a1a; 
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00ff41; 
+        }
+    </style>
+</head>
+<body class="font-mono h-screen flex flex-col crt">
+
+    <!-- Top Bar -->
+    <header class="border-b border-cyber-primaryDim bg-cyber-dark p-4 flex justify-between items-center z-10 glass">
+        <div class="flex items-center gap-3">
+            <i class="fa-solid fa-eye fa-xl animate-pulse text-cyber-primary" id="header-icon"></i>
+            <div>
+                <h1 class="font-display text-2xl tracking-widest text-cyber-primary text-glow shadow-cyber-primary">CAMERA_DETECTION</h1>
+            </div>
+        </div>
+        <div class="flex items-center gap-6">
+            <div class="text-right hidden md:block">
+                <p class="text-xs text-cyber-primaryDim">DATE</p>
+                <p id="clock-date" class="text-sm font-bold">2025-12-30</p>
+            </div>
+            <div class="text-right hidden md:block">
+                <p class="text-xs text-cyber-primaryDim">TIME</p>
+                <p id="clock-time" class="text-xl font-bold">06:08:38</p>
+            </div>
+            <div id="conn-status" class="hidden md:block px-3 py-1 border border-cyber-primary text-xs font-bold bg-cyber-primaryDim rounded animate-pulse">
+                CONNECTED
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 p-4 md:p-6 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10">
+        
+        <!-- Quick Stats (Left) -->
+        <section class="lg:col-span-3 flex flex-col gap-6">
+            <!-- Alert Status Box -->
+            <div id="status-panel" class="bg-cyber-panel border border-cyber-primaryDim p-6 rounded-sm relative overflow-hidden group">
+                <div class="absolute top-0 right-0 p-2 opacity-50">
+                    <i class="fa-solid fa-shield-halved fa-2x"></i>
+                </div>
+                <h2 class="text-sm text-cyber-primaryDim mb-2">DETECTION STATUS</h2>
+                <div id="status-text" class="text-3xl font-display font-bold text-cyber-primary tracking-wider">
+                    SECURE
+                </div>
+                <div id="status-subtext" class="text-xs mt-2 text-cyber-primaryDim">
+                    NO ANOMALIES DETECTED
+                </div>
+                <div class="absolute bottom-0 left-0 h-1 w-full bg-cyber-primary" id="status-bar"></div>
+            </div>
+
+            <!-- Single large metrics -->
+            <div class="grid grid-cols-2 lg:grid-cols-1 gap-4">
+                 <!-- Ambient Temp -->
+                 <div class="bg-cyber-panel border border-cyber-primaryDim p-4 rounded-sm">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs text-cyber-primaryDim mb-1">AMBIENT_TEMP</p>
+                            <span id="val-temp" class="text-4xl font-display font-bold text-white">--</span>
+                            <span class="text-sm text-cyber-primaryDim">°C</span>
+                        </div>
+                        <i class="fa-solid fa-temperature-half text-cyber-primaryDim"></i>
+                    </div>
+                </div>
+
+                <!-- Heart Rate -->
+                <div class="bg-cyber-panel border border-cyber-primaryDim p-4 rounded-sm">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs text-cyber-primaryDim mb-1">HEART_RATE</p>
+                            <span id="val-hr" class="text-4xl font-display font-bold text-white">--</span>
+                            <span class="text-sm text-cyber-primaryDim">BPM</span>
+                        </div>
+                        <i class="fa-solid fa-heart-pulse text-cyber-primaryDim animate-pulse"></i>
+                    </div>
+                </div>
+
+                <!-- SPO2 -->
+                <div class="bg-cyber-panel border border-cyber-primaryDim p-4 rounded-sm">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs text-cyber-primaryDim mb-1">OXYGEN_LEVEL</p>
+                            <span id="val-spo2" class="text-4xl font-display font-bold text-white">--</span>
+                            <span class="text-sm text-cyber-primaryDim">%</span>
+                        </div>
+                        <i class="fa-solid fa-lungs text-cyber-primaryDim"></i>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Radar (Center) -->
+        <section class="lg:col-span-5 flex flex-col justify-center items-center relative min-h-[400px]">
+            <!-- Radar Visual -->
+            <div id="radar-ui" class="radar-container mb-8 transition-all duration-500">
+                <div class="radar-grid"></div>
+                <!-- The scanner line/gradient -->
+                <div class="radar-scanner"></div>
+                <!-- Center dot -->
+                <div class="absolute inset-0 m-auto w-2 h-2 bg-cyber-primary rounded-full shadow-[0_0_10px_#00ff41]"></div>
+                
+                <!-- Single Blip: Will activate on detection -->
+                <div id="blip-1" class="radar-blip" style="top: 25%; left: 60%;"></div>
+                <!-- Extra blips removed to ensure single red marking -->
+                <div id="blip-2" class="hidden"></div>
+                <div id="blip-3" class="hidden"></div>
+            </div>
+
+            <!-- Radar text -->
+            <div class="text-center space-y-2">
+                <h3 class="text-xl font-display font-bold tracking-widest text-cyber-primary">IR_SCAN.EXE</h3>
+                <p id="radar-status" class="text-xs text-cyber-primaryDim blink">SCANNING SECTOR 7G...</p>
+            </div>
+            
+            <div class="mt-8 w-full max-w-md bg-cyber-dark border-t border-cyber-primaryDim p-2 flex gap-1 font-mono text-[10px] text-cyber-primaryDim opacity-70">
+                <div class="flex-1 bg-cyber-panel p-1" id="geo-lat">LAT: --</div>
+                <div class="flex-1 bg-cyber-panel p-1" id="geo-lon">LON: --</div>
+                <div class="flex-1 bg-cyber-panel p-1" id="geo-alt">ALT: --</div>
+                <div class="flex-1 bg-cyber-panel p-1" id="geo-vel">VEL: --</div>
+            </div>
+        </section>
+
+        <!-- Graphs (Right) -->
+        <section class="lg:col-span-4 flex flex-col gap-4">
+            
+            <!-- Graph 1: Temp -->
+            <div class="bg-cyber-panel border border-cyber-primaryDim p-3 rounded-sm h-[180px] w-full">
+                <div class="flex justify-between mb-2">
+                    <span class="text-xs font-bold text-cyber-primaryDim">TEMP_HISTORY</span>
+                    <span class="text-[10px] text-gray-500">LIVE</span>
+                </div>
+                <div class="h-[130px] w-full">
+                    <canvas id="chartTemp"></canvas>
+                </div>
+            </div>
+
+            <!-- Graph 2: Heart Rate -->
+            <div class="bg-cyber-panel border border-cyber-primaryDim p-3 rounded-sm h-[180px] w-full">
+                <div class="flex justify-between mb-2">
+                    <span class="text-xs font-bold text-cyber-primaryDim">HR_HISTORY</span>
+                    <span class="text-[10px] text-gray-500">LIVE</span>
+                </div>
+                <div class="h-[130px] w-full">
+                    <canvas id="chartHR"></canvas>
+                </div>
+            </div>
+            
+            <!-- Graph 3: SpO2 -->
+            <div class="bg-cyber-panel border border-cyber-primaryDim p-3 rounded-sm h-[180px] w-full">
+                <div class="flex justify-between mb-2">
+                    <span class="text-xs font-bold text-cyber-primaryDim">SPO2_METER</span>
+                    <span class="text-[10px] text-gray-500">LIVE</span>
+                </div>
+                <div class="h-[130px] w-full">
+                    <canvas id="chartSpo2"></canvas>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-cyber-primaryDim bg-cyber-dark p-2 text-center text-[10px] text-gray-600">
+        SECURE TERMINAL CONNECTION // ENCRYPTED: AES-256 // V 1.0.4
+    </footer>
+
+    <!-- Firebase & App Logic -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAEr1PqKoFOOnDwqInsm_DNYooB_Boh098",
+            authDomain: "hidden-camera-609af.firebaseapp.com",
+            databaseURL: "https://hidden-camera-609af-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "hidden-camera-609af",
+            storageBucket: "hidden-camera-609af.firebasestorage.app",
+            messagingSenderId: "625682210826",
+            appId: "1:625682210826:web:40f2137bd10514ce297ff3",
+            measurementId: "G-LLZFNL1K7J"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // --- UI Elements ---
+        const statusPanel = document.getElementById('status-panel');
+        const statusText = document.getElementById('status-text');
+        const statusSub = document.getElementById('status-subtext');
+        const statusBar = document.getElementById('status-bar');
+        
+        const valTemp = document.getElementById('val-temp');
+        const valHR = document.getElementById('val-hr');
+        const valSpo2 = document.getElementById('val-spo2');
+
+        const radarUI = document.getElementById('radar-ui');
+        const radarStatus = document.getElementById('radar-status');
+        const blips = [
+            document.getElementById('blip-1'), 
+            document.getElementById('blip-2'), 
+            document.getElementById('blip-3')
+        ];
+
+        // --- Chart Config ---
+        Chart.defaults.color = '#444';
+        Chart.defaults.borderColor = '#222';
+        
+        const commonOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false, // Performance
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { display: false },
+                y: { display: true, position: 'right' }
+            },
+            elements: {
+                line: { tension: 0.4, borderWidth: 2 },
+                point: { radius: 0 }
+            }
+        };
+
+        function createChart(ctx, label, color) {
+            return new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array(20).fill(''),
+                    datasets: [{
+                        label: label,
+                        data: Array(20).fill(null),
+                        borderColor: color,
+                        backgroundColor: color.replace('1)', '0.1)'),
+                        fill: true
+                    }]
+                },
+                options: commonOptions
+            });
+        }
+
+        const chartTemp = createChart(document.getElementById('chartTemp'), 'Temp', 'rgba(0, 255, 65, 1)');
+        const chartHR = createChart(document.getElementById('chartHR'), 'Heart Rate', 'rgba(0, 255, 65, 1)');
+        const chartSpo2 = createChart(document.getElementById('chartSpo2'), 'SpO2', 'rgba(0, 255, 65, 1)');
+
+        // Helper to update chart
+        function updateChartData(chart, newValue) {
+            const data = chart.data.datasets[0].data;
+            data.shift();
+            data.push(newValue);
+            chart.update();
+        }
+
+        // --- Clock Logic ---
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('clock-time').innerText = now.toLocaleTimeString();
+            document.getElementById('clock-date').innerText = now.toLocaleDateString();
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // --- Geolocation Logic ---
+        if ("geolocation" in navigator) {
+            navigator.geolocation.watchPosition((position) => {
+                const { latitude, longitude, altitude, speed } = position.coords;
+                document.getElementById('geo-lat').innerText = `LAT: ${latitude.toFixed(4)}`;
+                document.getElementById('geo-lon').innerText = `LON: ${longitude.toFixed(4)}`;
+                document.getElementById('geo-alt').innerText = `ALT: ${altitude ? altitude.toFixed(1) + 'M' : 'N/A'}`;
+                document.getElementById('geo-vel').innerText = `VEL: ${speed ? speed.toFixed(1) + ' m/s' : '0.0'}`;
+            }, (error) => {
+                console.warn("Geolocation access denied or unavailable:", error.message);
+                document.getElementById('geo-lat').innerText = "LAT: ERR";
+                document.getElementById('geo-lon').innerText = "LON: ERR";
+            }, {
+                enableHighAccuracy: true,
+                maximumAge: 0,
+                timeout: 5000
+            });
+        }
+
+
+        // --- Data Listener ---
+        const sensorRef = ref(db, 'sensor_data');
+        onValue(sensorRef, (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+
+            // 1. Update Numerical Display
+            valTemp.innerText = data.ambient_temp || '--';
+            valHR.innerText = data.heart_rate || '--';
+            valSpo2.innerText = data.spo2 || '--';
+
+            // 2. Update Charts
+            if (data.ambient_temp) updateChartData(chartTemp, data.ambient_temp);
+            if (data.heart_rate) updateChartData(chartHR, data.heart_rate);
+            if (data.spo2) updateChartData(chartSpo2, data.spo2);
+
+            // 3. Handle Detection State
+            const isDetected = data.cam_detected === true || data.cam_detected === "true";
+            
+            if (isDetected) {
+                // ALERT MODE
+                document.body.classList.add('alert-mode');
+                
+                // Status Panel
+                statusPanel.classList.remove('border-cyber-primaryDim');
+                statusPanel.classList.add('border-cyber-alert', 'bg-red-900/10');
+                
+                statusText.innerText = "WARNING: CAMERA DETECTED";
+                statusText.classList.replace('text-cyber-primary', 'text-cyber-alert');
+                
+                statusSub.innerText = "FOREIGN SIGNAL INTERCEPTED";
+                statusSub.classList.replace('text-cyber-primaryDim', 'text-cyber-alertDim');
+
+                statusBar.classList.replace('bg-cyber-primary', 'bg-cyber-alert');
+                statusBar.classList.add('animate-flash');
+
+                // Radar
+                radarStatus.innerText = "!!! CAMERA FOUND !!!";
+                radarStatus.classList.replace('text-cyber-primaryDim', 'text-cyber-alert');
+                radarStatus.classList.add('animate-bounce'); // Intense motion
+
+                // Blips - Show ONLY the single red marking (blip-1)
+                blips[0].style.display = 'block'; 
+                blips[1].style.display = 'none';
+                blips[2].style.display = 'none';
+                
+                // Color Shifts for Charts (optional, but cool)
+                [chartTemp, chartHR, chartSpo2].forEach(c => {
+                   c.data.datasets[0].borderColor = 'rgba(255, 0, 60, 1)'; 
+                   c.data.datasets[0].backgroundColor = 'rgba(255, 0, 60, 0.1)'; 
+                   c.update('none'); 
+                });
+
+                // Global Text
+                document.body.style.color = '#ff003c';
+
+            } else {
+                // NORMAL MODE
+                document.body.classList.remove('alert-mode');
+
+                // Status Panel
+                statusPanel.classList.add('border-cyber-primaryDim');
+                statusPanel.classList.remove('border-cyber-alert', 'bg-red-900/10');
+                
+                statusText.innerText = "SECURE";
+                statusText.classList.replace('text-cyber-alert', 'text-cyber-primary');
+                
+                statusSub.innerText = "NO ANOMALIES DETECTED";
+                statusSub.classList.replace('text-cyber-alertDim', 'text-cyber-primaryDim');
+
+                statusBar.classList.replace('bg-cyber-alert', 'bg-cyber-primary');
+                statusBar.classList.remove('animate-flash');
+
+                // Radar
+                radarStatus.innerText = "SCANNING SECTOR...";
+                radarStatus.classList.replace('text-cyber-alert', 'text-cyber-primaryDim');
+                radarStatus.classList.remove('animate-bounce');
+
+                // Blips hide
+                blips.forEach(b => b.style.display = 'none');
+
+                // Color Shifts for Charts (Back to Green)
+                [chartTemp, chartHR, chartSpo2].forEach(c => {
+                   c.data.datasets[0].borderColor = 'rgba(0, 255, 65, 1)'; 
+                   c.data.datasets[0].backgroundColor = 'rgba(0, 255, 65, 0.1)'; 
+                   c.update('none'); 
+                });
+
+                // Global Text
+                document.body.style.color = '#00ff41';
+            }
+
+        }, (error) => {
+            console.error("Firebase read error", error);
+            document.getElementById('conn-status').innerText = "OFFLINE";
+            document.getElementById('conn-status').classList.remove('bg-cyber-primaryDim', 'animate-pulse');
+            document.getElementById('conn-status').classList.add('bg-red-500', 'text-white');
+        });
+
+    </script>
+</body>
+</html>
