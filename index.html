@@ -54,6 +54,10 @@
                         flash: {
                             '0%, 100%': { opacity: '1' },
                             '50%': { opacity: '0.3' }
+                        },
+                        spin: {
+                            from: { transform: 'rotate(0deg)' },
+                            to: { transform: 'rotate(360deg)' }
                         }
                     }
                 }
@@ -138,6 +142,11 @@
             background: conic-gradient(from 180deg, transparent 50%, rgba(255, 0, 60, 0.5) 100%);
             border-bottom: 2px solid #ff003c;
             animation: spin 0.5s linear infinite; /* Faster spin on alert */
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
         
         /* CRT Effect Overlay */
@@ -426,23 +435,29 @@
         updateTime();
 
         // --- Geolocation Logic ---
-        if ("geolocation" in navigator) {
-            navigator.geolocation.watchPosition((position) => {
-                const { latitude, longitude, altitude, speed } = position.coords;
-                document.getElementById('geo-lat').innerText = `LAT: ${latitude.toFixed(4)}`;
-                document.getElementById('geo-lon').innerText = `LON: ${longitude.toFixed(4)}`;
-                document.getElementById('geo-alt').innerText = `ALT: ${altitude ? altitude.toFixed(1) + 'M' : 'N/A'}`;
-                document.getElementById('geo-vel').innerText = `VEL: ${speed ? speed.toFixed(1) + ' m/s' : '0.0'}`;
-            }, (error) => {
-                console.warn("Geolocation access denied or unavailable:", error.message);
-                document.getElementById('geo-lat').innerText = "LAT: ERR";
-                document.getElementById('geo-lon').innerText = "LON: ERR";
-            }, {
-                enableHighAccuracy: true,
-                maximumAge: 0,
-                timeout: 5000
-            });
+        // --- Geolocation Logic ---
+        function initGeolocation() {
+            if ("geolocation" in navigator) {
+                navigator.geolocation.watchPosition((position) => {
+                    const { latitude, longitude, altitude, speed } = position.coords;
+                    document.getElementById('geo-lat').innerText = `LAT: ${latitude.toFixed(4)}`;
+                    document.getElementById('geo-lon').innerText = `LON: ${longitude.toFixed(4)}`;
+                    document.getElementById('geo-alt').innerText = `ALT: ${altitude ? altitude.toFixed(1) + 'M' : 'N/A'}`;
+                    document.getElementById('geo-vel').innerText = `VEL: ${speed ? speed.toFixed(1) + ' m/s' : '0.0'}`;
+                }, (error) => {
+                    console.warn("Geolocation access denied or unavailable:", error.message);
+                    document.getElementById('geo-lat').innerText = "LAT: ERR";
+                    document.getElementById('geo-lon').innerText = "LON: ERR";
+                }, {
+                    enableHighAccuracy: true,
+                    maximumAge: 0,
+                    timeout: 5000
+                });
+            }
         }
+
+        // Trigger geolocation on first user interaction to satisfy browser policy
+        document.addEventListener('click', initGeolocation, { once: true });
 
 
         // --- Data Listener ---
